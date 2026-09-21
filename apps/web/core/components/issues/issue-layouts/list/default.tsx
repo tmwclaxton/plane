@@ -30,6 +30,7 @@ import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { IssueBulkOperationsRoot } from "@/components/issues/bulk-operations";
 // plane web hooks
 import { useBulkOperationStatus } from "@/hooks/use-bulk-operation-status";
+import { isLgsRoleIssueName } from "@/constants/lgs-roles";
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
@@ -111,6 +112,15 @@ export const List = observer(function List(props: IList) {
 
   const getGroupIndex = (groupId: string | undefined) => groups.findIndex(({ id }) => id === groupId);
 
+  const visibleGroupedIssueIds = Object.fromEntries(
+    Object.entries(groupedIssueIds ?? {}).map(([groupId, issueIds]) => [
+      groupId,
+      Array.isArray(issueIds)
+        ? issueIds.filter((issueId) => !isLgsRoleIssueName(issuesMap[issueId]?.name))
+        : issueIds,
+    ])
+  ) as TGroupedIssues;
+
   const is_list = group_by === null ? true : false;
 
   // create groupIds array and entities object for bulk ops
@@ -122,9 +132,9 @@ export const List = observer(function List(props: IList) {
   let entities: Record<string, string[]> = {};
 
   if (is_list) {
-    entities = Object.assign(orderedGroups, { [groupIds[0]]: groupedIssueIds[ALL_ISSUES] ?? [] });
-  } else if (!isSubGrouped(groupedIssueIds)) {
-    entities = Object.assign(orderedGroups, { ...groupedIssueIds });
+    entities = Object.assign(orderedGroups, { [groupIds[0]]: visibleGroupedIssueIds[ALL_ISSUES] ?? [] });
+  } else if (!isSubGrouped(visibleGroupedIssueIds)) {
+    entities = Object.assign(orderedGroups, { ...visibleGroupedIssueIds });
   } else {
     entities = orderedGroups;
   }
@@ -145,7 +155,7 @@ export const List = observer(function List(props: IList) {
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
                     key={group.id}
-                    groupIssueIds={groupedIssueIds?.[group.id]}
+                    groupIssueIds={visibleGroupedIssueIds?.[group.id]}
                     issuesMap={issuesMap}
                     group_by={group_by}
                     group={group}
