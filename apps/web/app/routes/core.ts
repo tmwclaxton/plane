@@ -62,6 +62,9 @@ export const coreRoutes: RouteConfigEntry[] = [
         // Workspace Home
         route(":workspaceSlug", "./(all)/[workspaceSlug]/(projects)/page.tsx"),
 
+        // CRM
+        route(":workspaceSlug/crm", "./(all)/[workspaceSlug]/(projects)/crm/page.tsx"),
+
         // Active Cycles
         layout("./(all)/[workspaceSlug]/(projects)/active-cycles/layout.tsx", [
           route(":workspaceSlug/active-cycles", "./(all)/[workspaceSlug]/(projects)/active-cycles/page.tsx"),
@@ -167,6 +170,14 @@ export const coreRoutes: RouteConfigEntry[] = [
             route(
               ":workspaceSlug/projects/:projectId/roles",
               "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/roles/(list)/page.tsx"
+            ),
+          ]),
+
+          // CRM
+          layout("./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/crm/(list)/layout.tsx", [
+            route(
+              ":workspaceSlug/projects/:projectId/crm",
+              "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/crm/(list)/page.tsx"
             ),
           ]),
 

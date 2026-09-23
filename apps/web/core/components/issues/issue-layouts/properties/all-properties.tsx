@@ -320,15 +320,16 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
       {/* assignee */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="assignee">
         {/* oxlint-disable-next-line jsx_a11y/click-events-have-key-events oxlint-disable-next-line jsx_a11y/no-static-element-interactions */}
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <div className="min-h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
           <MemberDropdown
             projectId={issue?.project_id}
             value={issue?.assignee_ids}
             onChange={handleAssignee}
             disabled={isReadOnly}
             multiple
+            showPills
             buttonVariant={issue.assignee_ids?.length > 0 ? "transparent-without-text" : "border-without-text"}
-            buttonClassName={issue.assignee_ids?.length > 0 ? "hover:bg-transparent px-0" : ""}
+            buttonClassName={issue.assignee_ids?.length > 0 ? "h-auto hover:bg-transparent px-0" : ""}
             showTooltip={issue?.assignee_ids?.length === 0}
             placeholder={t("common.assignees")}
             optionsClassName="z-10"

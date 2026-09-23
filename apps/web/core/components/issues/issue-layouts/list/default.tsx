@@ -30,7 +30,8 @@ import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { IssueBulkOperationsRoot } from "@/components/issues/bulk-operations";
 // plane web hooks
 import { useBulkOperationStatus } from "@/hooks/use-bulk-operation-status";
-import { isLgsRoleIssueName } from "@/constants/lgs-roles";
+import { isLgsRoleIssue } from "@/constants/lgs-roles";
+import { useLabel } from "@/hooks/store/use-label";
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
@@ -85,6 +86,7 @@ export const List = observer(function List(props: IList) {
   const storeType = useIssueStoreType();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
+  const { getLabelById } = useLabel();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -116,7 +118,7 @@ export const List = observer(function List(props: IList) {
     Object.entries(groupedIssueIds ?? {}).map(([groupId, issueIds]) => [
       groupId,
       Array.isArray(issueIds)
-        ? issueIds.filter((issueId) => !isLgsRoleIssueName(issuesMap[issueId]?.name))
+        ? issueIds.filter((issueId) => !isLgsRoleIssue(issuesMap[issueId], getLabelById))
         : issueIds,
     ])
   ) as TGroupedIssues;

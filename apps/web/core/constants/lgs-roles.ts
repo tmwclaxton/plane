@@ -4,41 +4,58 @@
  * See the LICENSE file for details.
  */
 
-export const LGS_ROLE_DEFINITIONS = [
-  {
-    name: "Area Lead",
-    owns: "Overall area health. Recruits the other roles, attends events, talks to attendees and explains the mission.",
-    difficulty: "Med",
-  },
-  {
-    name: "Organisation Lead",
-    owns: "Event logistics: coffee shop, sports activity, chill activity, food and on-the-day admin.",
-    difficulty: "Med",
-  },
-  {
-    name: "Social Media Lead",
-    owns: "Visibility and hype. Posts and stories before, during and after each event.",
-    difficulty: "Med",
-  },
-  {
-    name: "Partnerships Lead",
-    owns: "Charity relationships. Secures free venues by trading volunteer hours.",
-    difficulty: "Med",
-  },
-  {
-    name: "Relationships Lead",
-    owns: "Growing the group. Bumble Friends / LGS Pipeline, WhatsApp and Instagram, group chat invites, CRM.",
-    difficulty: "High",
-  },
-  {
-    name: "Grant Writer",
-    owns: "Use GrantGunner to apply for grants for Let's Go Social.",
-    difficulty: "Med",
-  },
+import type { TIssue } from "@plane/types";
+
+export const LGS_ROLE_LABEL_NAME = "Role";
+
+export const LGS_ROLE_NAMES = [
+  "Area Lead",
+  "Organisation Lead",
+  "Social Media Lead",
+  "Partnerships Lead",
+  "Relationships Lead",
+  "Grant Writer",
+  "Global Admin",
 ] as const;
 
-export const LGS_ROLE_NAMES = LGS_ROLE_DEFINITIONS.map((role) => role.name);
+export type TRoleDifficulty = "Low" | "Med" | "High";
+
+export function difficultyFromPriority(priority?: string | null): TRoleDifficulty {
+  if (priority === "high" || priority === "urgent") return "High";
+  if (priority === "low") return "Low";
+  return "Med";
+}
+
+export function priorityFromDifficulty(difficulty: TRoleDifficulty): "low" | "medium" | "high" {
+  if (difficulty === "High") return "high";
+  if (difficulty === "Low") return "low";
+  return "medium";
+}
+
+export function escapeRoleHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function ownsFromIssue(issue: TIssue): string {
+  const stripped = issue.description_stripped?.trim();
+  if (stripped) return stripped;
+  const html = issue.description_html ?? "";
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 
 export function isLgsRoleIssueName(name?: string | null): boolean {
   return !!name && (LGS_ROLE_NAMES as readonly string[]).includes(name);
+}
+
+export function isLgsRoleIssue(
+  issue: TIssue | undefined,
+  getLabelById?: (labelId: string) => { name: string } | null
+): boolean {
+  if (!issue) return false;
+  if (isLgsRoleIssueName(issue.name)) return true;
+  return (issue.label_ids ?? []).some((labelId) => getLabelById?.(labelId)?.name === LGS_ROLE_LABEL_NAME);
 }
