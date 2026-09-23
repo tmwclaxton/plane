@@ -263,23 +263,34 @@
     );
   }
 
+  function findHomeLink() {
+    var links = document.querySelectorAll("a[href]");
+    for (var i = 0; i < links.length; i += 1) {
+      var href = links[i].getAttribute("href") || "";
+      var text = (links[i].textContent || "").replace(/\s+/g, " ").trim();
+      if (text === "Home" && /\/lgs\/?$/.test(href.split("?")[0])) {
+        return links[i];
+      }
+    }
+    return document.querySelector('a[href$="/lgs/"], a[href$="/lgs"]');
+  }
+
   function ensureSidebar() {
     if (!window.__lgsCrmCanView) {
       return;
     }
-    var home = document.querySelector('a[href$="/lgs/"], a[href$="/lgs"]');
-    var nav = home && home.parentElement && home.parentElement.parentElement;
-    if (!nav || nav.querySelector("[data-lgs-crm-link]")) {
-      return;
-    }
-    var link = document.createElement("a");
-    link.href = "/lgs/crm";
-    link.setAttribute("data-lgs-crm-link", "1");
-    link.textContent = "CRM";
-    link.style.cssText =
-      "display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:inherit;text-decoration:none;font-size:13px;";
-    if (home && home.parentElement) {
-      home.parentElement.insertAdjacentElement("afterend", link);
+    if (!document.querySelector("[data-lgs-crm-link]")) {
+      var home = findHomeLink();
+      if (home && home.parentNode) {
+        var link = home.cloneNode(true);
+        link.setAttribute("data-lgs-crm-link", "1");
+        link.setAttribute("href", "/lgs/crm");
+        var label = link.querySelector("p");
+        if (label) {
+          label.textContent = "CRM";
+        }
+        home.insertAdjacentElement("afterend", link);
+      }
     }
 
     document.querySelectorAll('a[href*="/projects/"][href$="/roles"]').forEach(function (roles) {
@@ -291,38 +302,48 @@
       if (!match) {
         return;
       }
-      var projectLink = document.createElement("a");
-      projectLink.href = match[1] + "/crm";
+      var projectLink = roles.cloneNode(true);
+      projectLink.setAttribute("href", match[1] + "/crm");
       projectLink.setAttribute("data-lgs-project-crm", "1");
-      projectLink.textContent = "CRM";
-      projectLink.style.cssText = roles.getAttribute("style") || link.style.cssText;
+      var projectLabel = projectLink.querySelector("p");
+      if (projectLabel) {
+        projectLabel.textContent = "CRM";
+      }
       roles.insertAdjacentElement("afterend", projectLink);
     });
   }
 
-  function bootOverlay() {
-    request("GET", "/me")
+  function refreshMe() {
+    return request("GET", "/me")
       .then(function (me) {
+        window.__lgsCrmMeResolved = true;
         window.__lgsCrmCanView = !!me.can_view;
         ensureSidebar();
-        if (isCrmPath() && me.can_view) {
+        if (isCrmPath() && me.can_view && !document.querySelector("[data-lgs-crm-mounted]")) {
           var main = findMain();
           if (!main) {
-            return;
+            return me;
           }
           main.setAttribute("data-lgs-crm-root", "1");
+          main.setAttribute("data-lgs-crm-mounted", "1");
           mount(main);
         }
+        return me;
       })
       .catch(function () {});
   }
 
-  window.LgsCrm = { mount: mount, bootOverlay: bootOverlay };
+  window.LgsCrm = { mount: mount, bootOverlay: refreshMe };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bootOverlay);
+    document.addEventListener("DOMContentLoaded", refreshMe);
   } else {
-    bootOverlay();
+    refreshMe();
   }
-  window.setInterval(ensureSidebar, 2000);
+  window.setInterval(function () {
+    if (!window.__lgsCrmMeResolved) {
+      refreshMe();
+    }
+    ensureSidebar();
+  }, 2000);
 })();

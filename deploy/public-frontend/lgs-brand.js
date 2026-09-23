@@ -65,6 +65,10 @@
       'a[aria-label*="Star us on GitHub"],',
       'a[href*="github.com/makeplane/plane"],',
       'a[href*="github.com/makeplane"][aria-label] { display: none !important; }',
+      /* Hide stickies on LGS home and sidebar; they error on save. */
+      'a[href$="/stickies"],',
+      'a[href$="/stickies/"],',
+      'a[href*="/stickies?"] { display: none !important; }',
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -82,9 +86,22 @@
     document.querySelectorAll("a").forEach(function (link) {
       var label = (link.getAttribute("aria-label") || "").toLowerCase();
       var href = link.getAttribute("href") || "";
-      if (label.indexOf("star us on github") !== -1 || href.indexOf("github.com/makeplane") !== -1) {
+      if (
+        label.indexOf("star us on github") !== -1 ||
+        href.indexOf("github.com/makeplane") !== -1 ||
+        /\/stickies\/?$/.test(href)
+      ) {
         link.style.setProperty("display", "none", "important");
       }
+    });
+    hideStickies();
+  }
+
+  function hideStickies() {
+    document.querySelectorAll('a[href*="stickies"]').forEach(function (link) {
+      var href = link.getAttribute("href") || "";
+      if (!/\/stickies\/?(\?|$)/.test(href)) return;
+      link.style.setProperty("display", "none", "important");
     });
   }
 
@@ -186,27 +203,27 @@
   }
 
   function scheduleBranding() {
-    var runs = 0;
+    var pending = false;
     function tick() {
-      runs += 1;
+      pending = false;
       hideUpsells();
       brandLogos();
       brandHomeDoodle();
       replaceAuthCopy();
-      if (runs < 16) window.setTimeout(tick, 750);
+    }
+    function requestTick() {
+      if (pending) return;
+      pending = true;
+      window.setTimeout(tick, 300);
     }
     window.setTimeout(tick, 200);
+    window.setTimeout(tick, 1500);
+    window.setTimeout(tick, 4000);
     if (window.MutationObserver && !window.__lgsBrandObserver) {
-      window.__lgsBrandObserver = new MutationObserver(function () {
-        hideUpsells();
-        brandLogos();
-        brandHomeDoodle();
-        replaceAuthCopy();
-      });
+      window.__lgsBrandObserver = new MutationObserver(requestTick);
       window.__lgsBrandObserver.observe(document.documentElement, {
         childList: true,
         subtree: true,
-        characterData: true,
       });
     }
   }
