@@ -51,7 +51,7 @@ fi
 find "$ASSETS" -type f -name '*.js' -print0 | xargs -0 sed -i \
   -e 's#my_stickies:{component:[A-Za-z_$][A-Za-z0-9_$]*,#my_stickies:{component:null,#'
 
-sed -i 's#</body>#<script src="/lgs-brand.js?v=12" defer></script><script src="/lgs-share.js?v=2" defer></script><script src="/lgs-crm.js?v=2" defer></script></body>#' "$INDEX"
+sed -i 's#</body>#<script src="/lgs-brand.js?v=12" defer></script><script src="/lgs-share.js?v=2" defer></script><script src="/lgs-crm.js?v=3" defer></script></body>#' "$INDEX"
 
 # Replace service worker with kill-switch.
 if [ -f /usr/share/nginx/html/sw.js.lgs ]; then

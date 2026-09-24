@@ -49,6 +49,83 @@
     return /\/crm\/?$/.test(window.location.pathname);
   }
 
+  function ensureStyles() {
+    if (document.getElementById("lgs-crm-style")) {
+      return;
+    }
+    var style = document.createElement("style");
+    style.id = "lgs-crm-style";
+    style.textContent = [
+      "html[data-lgs-crm-page='1'] [data-lgs-crm-hide] { display: none !important; }",
+      "#lgs-crm-host {",
+      "  position: fixed; top: 0; right: 0; bottom: 0; z-index: 25;",
+      "  display: flex; flex-direction: column; gap: 16px;",
+      "  overflow: auto; padding: 24px 28px 32px;",
+      "  background: var(--color-background-1, #0d0d0d);",
+      "  color: var(--color-text-primary, #e5e5e5);",
+      "  font: 13px/1.45 ui-sans-serif, system-ui, sans-serif;",
+      "}",
+      "#lgs-crm-host h1 { margin: 0; font-size: 16px; font-weight: 600; }",
+      "#lgs-crm-host .sub { margin: 4px 0 0; color: var(--color-text-secondary, #a3a3a3); }",
+      "#lgs-crm-host .err { color: #f87171; }",
+      "#lgs-crm-host .panel {",
+      "  border: 1px solid var(--color-border-subtle, #262626);",
+      "  border-radius: 8px; padding: 12px 14px;",
+      "  background: var(--color-background-2, #171717);",
+      "}",
+      "#lgs-crm-host .panel-grid { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; }",
+      "#lgs-crm-host label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }",
+      "#lgs-crm-host button {",
+      "  background: transparent; color: inherit; cursor: pointer;",
+      "  border: 1px solid var(--color-border-subtle, #404040);",
+      "  border-radius: 6px; padding: 5px 10px;",
+      "}",
+      "#lgs-crm-host .table-wrap { overflow: auto; border: 1px solid var(--color-border-subtle, #262626); border-radius: 8px; }",
+      "#lgs-crm-host table { width: 100%; min-width: 860px; border-collapse: collapse; }",
+      "#lgs-crm-host th, #lgs-crm-host td {",
+      "  text-align: left; vertical-align: top; padding: 10px 12px;",
+      "  border-bottom: 1px solid var(--color-border-subtle, #262626);",
+      "}",
+      "#lgs-crm-host th { color: var(--color-text-secondary, #a3a3a3); font-weight: 500; }",
+      "#lgs-crm-host .muted { color: var(--color-text-tertiary, #737373); }",
+      "#lgs-crm-host .chips { display: flex; flex-wrap: wrap; gap: 6px 10px; }",
+    ].join("\n");
+    document.head.appendChild(style);
+  }
+
+  function placeHost(host) {
+    var left = 251;
+    var home = findHomeLink();
+    var sidebar = home && home.closest("aside");
+    if (!sidebar && home) {
+      sidebar = home.closest("div.flex.h-full.flex-col, div.flex.h-full.w-full.flex-col");
+    }
+    if (sidebar) {
+      var box = sidebar.getBoundingClientRect();
+      if (box.width > 48 && box.left < 320) {
+        left = Math.round(box.right);
+      }
+    }
+    host.style.left = left + "px";
+  }
+
+  function hidePlaneNotFound() {
+    document.documentElement.setAttribute("data-lgs-crm-page", "1");
+    document.querySelectorAll("h1, h2, p").forEach(function (el) {
+      var text = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (
+        text === "404" ||
+        text.indexOf("This page could not be found") !== -1 ||
+        text.indexOf("Page not found") !== -1
+      ) {
+        var wrap = el.closest("div.h-screen, main, [class*='empty']") || el.parentElement;
+        if (wrap && wrap.id !== "lgs-crm-host") {
+          wrap.setAttribute("data-lgs-crm-hide", "1");
+        }
+      }
+    });
+  }
+
   function render(root, state) {
     if (state.error) {
       root.innerHTML = '<p class="err">' + escapeHtml(state.error) + "</p>";
@@ -110,7 +187,7 @@
           escapeHtml(contact.status) +
           "</td>" +
           "<td>" +
-          (state.me.is_admin ? checks : escapeHtml(projects)) +
+          (state.me.is_admin ? '<div class="chips">' + checks + "</div>" : escapeHtml(projects)) +
           "</td>" +
           "<td>" +
           escapeHtml(contact.notes) +
@@ -148,22 +225,23 @@
         })
         .join("");
       access =
-        '<div class="panel"><p class="sub">Who can view CRM (workspace admins always can)</p>' +
+        '<div class="panel"><p class="sub">Who can view CRM. Workspace admins always can.</p>' +
+        '<div class="panel-grid">' +
         memberBoxes +
-        '<div><button type="button" id="lgs-crm-save-viewers">Save access</button></div></div>';
+        '</div><button type="button" id="lgs-crm-save-viewers">Save access</button></div>';
     }
 
     root.innerHTML =
-      "<h1>" +
+      "<div><h1>" +
       title +
       "</h1>" +
-      '<p class="sub">Shared with the LGS admin CRM. No WhatsApp or Bumble logs here.</p>' +
+      '<p class="sub">Shared with the LGS admin CRM. No WhatsApp or Bumble logs here.</p></div>' +
       access +
-      "<table><thead><tr>" +
+      '<div class="table-wrap"><table><thead><tr>' +
       "<th>Contact</th><th>Email</th><th>Phone</th><th>Region</th><th>Closest LGS</th><th>Status</th><th>Projects</th><th>Notes</th>" +
       "</tr></thead><tbody>" +
       (rows || '<tr><td colspan="8" class="muted">No contacts yet.</td></tr>') +
-      "</tbody></table>";
+      "</tbody></table></div>";
 
     root.querySelectorAll("input[data-contact]").forEach(function (input) {
       input.addEventListener("change", function () {
@@ -255,12 +333,17 @@
   }
 
   function findMain() {
-    return (
-      document.querySelector("[data-lgs-crm-root]") ||
-      document.querySelector("main") ||
-      document.querySelector("#content") ||
-      document.querySelector(".h-full.w-full.overflow-auto")
-    );
+    ensureStyles();
+    hidePlaneNotFound();
+    var host = document.getElementById("lgs-crm-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "lgs-crm-host";
+      host.setAttribute("data-lgs-crm-root", "1");
+      document.body.appendChild(host);
+    }
+    placeHost(host);
+    return host;
   }
 
   function findHomeLink() {
@@ -319,14 +402,20 @@
         window.__lgsCrmMeResolved = true;
         window.__lgsCrmCanView = !!me.can_view;
         ensureSidebar();
-        if (isCrmPath() && me.can_view && !document.querySelector("[data-lgs-crm-mounted]")) {
+        if (isCrmPath() && me.can_view) {
           var main = findMain();
-          if (!main) {
-            return me;
+          if (main && !main.getAttribute("data-lgs-crm-mounted")) {
+            main.setAttribute("data-lgs-crm-mounted", "1");
+            mount(main);
+          } else if (main) {
+            placeHost(main);
           }
-          main.setAttribute("data-lgs-crm-root", "1");
-          main.setAttribute("data-lgs-crm-mounted", "1");
-          mount(main);
+        } else {
+          var extra = document.getElementById("lgs-crm-host");
+          if (extra && !isCrmPath()) {
+            extra.remove();
+            document.documentElement.removeAttribute("data-lgs-crm-page");
+          }
         }
         return me;
       })
@@ -345,5 +434,25 @@
       refreshMe();
     }
     ensureSidebar();
+    if (isCrmPath() && window.__lgsCrmCanView) {
+      var pane = findMain();
+      if (pane && !pane.getAttribute("data-lgs-crm-mounted")) {
+        pane.setAttribute("data-lgs-crm-mounted", "1");
+        mount(pane);
+      } else if (pane) {
+        placeHost(pane);
+        hidePlaneNotFound();
+      }
+    } else if (!isCrmPath()) {
+      var leftover = document.getElementById("lgs-crm-host");
+      if (leftover) leftover.remove();
+      document.documentElement.removeAttribute("data-lgs-crm-page");
+    }
   }, 2000);
+  window.addEventListener("resize", function () {
+    var host = document.getElementById("lgs-crm-host");
+    if (host) {
+      placeHost(host);
+    }
+  });
 })();
