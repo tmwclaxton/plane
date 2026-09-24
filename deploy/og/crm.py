@@ -16,7 +16,7 @@ def _plane():
 
     return plane
 
-LGS_API_URL = os.environ.get("LGS_API_URL", "https://letsgosocial.co.uk").rstrip("/")
+LGS_API_URL = os.environ.get("LGS_API_URL", "http://172.17.0.1:8099").rstrip("/")
 LGS_PLANE_CRM_TOKEN = os.environ.get("LGS_PLANE_CRM_TOKEN", "")
 WORKSPACE_SLUG = os.environ.get("LGS_PLANE_WORKSPACE", "lgs")
 
