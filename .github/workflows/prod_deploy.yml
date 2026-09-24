@@ -13,10 +13,11 @@ env:
   DEPLOY_HOST: admin.grantgunner.org
   DEPLOY_USER: gunnergrant
   DEPLOY_DIR: /home/gunnergrant/plane-selfhost/plane-app
+  PLANE_SRC_DIR: /home/gunnergrant/plane-selfhost/plane-src
 
 jobs:
   deploy:
-    name: Deploy overlay to plane.canvassr.org
+    name: Rebuild web image and deploy to plane.canvassr.org
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,17 +43,27 @@ jobs:
             BatchMode yes
             ConnectTimeout 30
             ServerAliveInterval 30
-            ServerAliveCountMax 6
+            ServerAliveCountMax 120
             StrictHostKeyChecking accept-new
             ProxyCommand cloudflared access ssh --hostname %h
           EOF
 
-      - name: Sync overlay and rebuild
+      - name: Sync source, rebuild frontend, deploy overlay
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          ssh ${{ env.DEPLOY_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}/og ${{ env.DEPLOY_DIR }}/public-frontend"
+          ssh ${{ env.DEPLOY_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}/og ${{ env.DEPLOY_DIR }}/public-frontend ${{ env.PLANE_SRC_DIR }}"
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.turbo' \
+            --exclude '.next' \
+            --exclude '.react-router' \
+            --exclude 'build' \
+            --exclude 'dist' \
+            --exclude 'out' \
+            ./ ${{ env.DEPLOY_HOST }}:${{ env.PLANE_SRC_DIR }}/
           rsync -a --delete \
             --exclude '.git' \
             deploy/og/ ${{ env.DEPLOY_HOST }}:${{ env.DEPLOY_DIR }}/og/
@@ -60,4 +71,4 @@ jobs:
             --exclude '.git' \
             deploy/public-frontend/ ${{ env.DEPLOY_HOST }}:${{ env.DEPLOY_DIR }}/public-frontend/
           scp deploy/prod-deploy.sh ${{ env.DEPLOY_HOST }}:${{ env.DEPLOY_DIR }}/prod-deploy.sh
-          ssh ${{ env.DEPLOY_HOST }} "chmod +x ${{ env.DEPLOY_DIR }}/prod-deploy.sh && ${{ env.DEPLOY_DIR }}/prod-deploy.sh"
+          ssh ${{ env.DEPLOY_HOST }} "chmod +x ${{ env.DEPLOY_DIR }}/prod-deploy.sh && PLANE_SRC_DIR=${{ env.PLANE_SRC_DIR }} ${{ env.DEPLOY_DIR }}/prod-deploy.sh"

@@ -8,6 +8,9 @@
 		reverse_proxy /public/* og:8080
 		reverse_proxy /crm-api/* og:8080
 
+		@crm path /crm /crm/
+		redir @crm /lgs/crm
+
 		@unfurl header_regexp User-Agent `(?i)(facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|LinkedInBot|Discordbot|WhatsApp|TelegramBot|SkypeUriPreview|Applebot|iMessage|Googlebot|bingbot|redditbot|Embedly|Iframely|Pinterest|vkShare|Quora|DuckDuckBot|Baiduspider|YandexBot|Snapchat|Viber|embedly)`
 		reverse_proxy @unfurl og:8080
 

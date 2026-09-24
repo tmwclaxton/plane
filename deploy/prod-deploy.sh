@@ -26,6 +26,24 @@ path.write_text(text)
 print("lgs_api_url_ok")
 PY
 
+SRC="${PLANE_SRC_DIR:-/home/gunnergrant/plane-selfhost/plane-src}"
+if [ ! -f "$SRC/apps/web/Dockerfile.web" ]; then
+  echo "missing Plane web Dockerfile at $SRC/apps/web/Dockerfile.web" >&2
+  exit 1
+fi
+
+# Always compile apps/web from source. Do not ship the stock
+# makeplane frontend or a JS-hotpatched copy of it.
+DOCKER_BUILDKIT=1 docker build \
+  -f "$SRC/apps/web/Dockerfile.web" \
+  -t lgs/plane-frontend:v1.4.2-built \
+  "$SRC"
+
+if ! docker run --rm --entrypoint grep lgs/plane-frontend:v1.4.2-built -R -l 'key:`crm`' /usr/share/nginx/html/assets >/dev/null; then
+  echo "built frontend is missing compiled CRM nav" >&2
+  exit 1
+fi
+
 docker compose --env-file plane.env build og
 docker build -t lgs/plane-frontend:v1.4.2-public ./public-frontend
 docker compose --env-file plane.env up -d --no-deps --force-recreate og web proxy
