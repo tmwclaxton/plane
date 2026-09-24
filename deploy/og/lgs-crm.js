@@ -358,6 +358,35 @@
     return document.querySelector('a[href$="/lgs/"], a[href$="/lgs"]');
   }
 
+  function setNavActive(link, active) {
+    if (!link) {
+      return;
+    }
+    var item = link.querySelector("div.group.relative") || link.firstElementChild || link;
+    var classes = (item.getAttribute("class") || "")
+      .replace(/!?bg-layer-transparent-active/g, "")
+      .replace(/\btext-primary\b/g, "")
+      .replace(/\btext-secondary\b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    item.setAttribute(
+      "class",
+      (classes + (active ? " !bg-layer-transparent-active text-primary" : " text-secondary")).trim(),
+    );
+  }
+
+  function syncSidebarActive() {
+    var onCrm = isCrmPath();
+    document.querySelectorAll("[data-lgs-crm-link]").forEach(function (link) {
+      setNavActive(link, onCrm && !projectIdsFromPath());
+    });
+    document.querySelectorAll("[data-lgs-project-crm]").forEach(function (link) {
+      var href = (link.getAttribute("href") || "").replace(/\/$/, "");
+      var path = window.location.pathname.replace(/\/$/, "");
+      setNavActive(link, path === href);
+    });
+  }
+
   function ensureSidebar() {
     if (!window.__lgsCrmCanView) {
       return;
@@ -394,6 +423,7 @@
       }
       roles.insertAdjacentElement("afterend", projectLink);
     });
+    syncSidebarActive();
   }
 
   function refreshMe() {
