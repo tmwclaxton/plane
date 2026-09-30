@@ -3,7 +3,7 @@ name: Production Deploy
 on:
   workflow_dispatch:
   push:
-    branches: [lgs/bulk-due-dates]
+    branches: [master]
 
 concurrency:
   group: plane-production-deploy
