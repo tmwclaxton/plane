@@ -22,6 +22,16 @@ if "host.docker.internal:host-gateway" not in text and "  og:" in text:
         "      LGS_PLANE_WORKSPACE: lgs\n    deploy:\n",
         "      LGS_PLANE_WORKSPACE: lgs\n    extra_hosts:\n      - \"host.docker.internal:host-gateway\"\n    deploy:\n",
     )
+if "  og:" in text and "AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}" not in text:
+    text = text.replace(
+        "      LGS_PLANE_WORKSPACE: lgs\n",
+        "      LGS_PLANE_WORKSPACE: lgs\n"
+        "      AWS_REGION: ${AWS_REGION}\n"
+        "      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}\n"
+        "      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}\n"
+        "      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL}\n"
+        "      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}\n",
+    )
 path.write_text(text)
 print("lgs_api_url_ok")
 PY
