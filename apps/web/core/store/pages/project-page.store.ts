@@ -12,6 +12,7 @@ import { EUserPermissions } from "@plane/constants";
 import type { TPage, TPageFilters, TPageNavigationTabs } from "@plane/types";
 import { EUserProjectRoles } from "@plane/types";
 // helpers
+import { canMovePageToParent } from "@/components/pages/list/folder";
 import { filterPagesByPageType, getPageName, orderPages, shouldFilterPage } from "@plane/utils";
 // plane web constants
 // plane web store
@@ -64,6 +65,7 @@ export interface IProjectPageStore {
   createPage: (pageData: Partial<TPage>) => Promise<TPage | undefined>;
   removePage: (params: { pageId: string; shouldSync?: boolean }) => Promise<void>;
   movePage: (workspaceSlug: string, projectId: string, pageId: string, newProjectId: string) => Promise<void>;
+  movePagesToParent: (pageIds: string[], parentId: string | null) => Promise<void>;
 }
 
 export class ProjectPageStore implements IProjectPageStore {
@@ -99,6 +101,7 @@ export class ProjectPageStore implements IProjectPageStore {
       createPage: action,
       removePage: action,
       movePage: action,
+      movePagesToParent: action,
     });
     this.rootStore = store;
     // service
@@ -306,7 +309,18 @@ export class ProjectPageStore implements IProjectPageStore {
 
       const page = await this.service.create(workspaceSlug, projectId, pageData);
       runInAction(() => {
-        if (page?.id) set(this.data, [page.id], new ProjectPage(this.store, page));
+        if (page?.id) {
+          set(
+            this.data,
+            [page.id],
+            new ProjectPage(this.store, {
+              ...pageData,
+              ...page,
+              parent: page.parent ?? pageData.parent ?? null,
+              view_props: page.view_props ?? pageData.view_props,
+            })
+          );
+        }
         this.loader = undefined;
       });
 
@@ -356,6 +370,23 @@ export class ProjectPageStore implements IProjectPageStore {
    * @param {string} pageId
    * @param {string} newProjectId
    */
+  movePagesToParent = async (pageIds: string[], parentId: string | null) => {
+    const { workspaceSlug, projectId } = this.store.router;
+    if (!workspaceSlug || !projectId) {
+      return;
+    }
+    const uniqueIds = [...new Set(pageIds.filter(Boolean))];
+    for (const pageId of uniqueIds) {
+      if (!canMovePageToParent(this.data, pageId, parentId)) {
+        continue;
+      }
+      await this.service.update(workspaceSlug, projectId, pageId, { parent: parentId });
+      runInAction(() => {
+        this.getPageById(pageId)?.mutateProperties({ parent: parentId });
+      });
+    }
+  };
+
   movePage = async (workspaceSlug: string, projectId: string, pageId: string, newProjectId: string) => {
     try {
       await this.service.move(workspaceSlug, projectId, pageId, newProjectId);

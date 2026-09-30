@@ -18,6 +18,7 @@ import type { TPage } from "@plane/types";
 import { Breadcrumbs, Header } from "@plane/ui";
 // helpers
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
+import { CreateFolderModal } from "@/components/pages/modals/create-folder-modal";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
 // plane web imports
@@ -27,6 +28,7 @@ import { EPageStoreType, usePageStore } from "@/hooks/store";
 export const PagesListHeader = observer(function PagesListHeader() {
   // states
   const [isCreatingPage, setIsCreatingPage] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   // router
   const router = useRouter();
   const { workspaceSlug, projectId } = useParams();
@@ -67,7 +69,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
           <Breadcrumbs.Item
             component={
               <BreadcrumbLink
-                label="Pages"
+                label="Docs"
                 href={`/${workspaceSlug}/projects/${currentProjectDetails?.id}/pages/`}
                 icon={<PageIcon className="h-4 w-4 text-tertiary" />}
                 isLast
@@ -79,11 +81,20 @@ export const PagesListHeader = observer(function PagesListHeader() {
       </Header.LeftItem>
       {canCurrentUserCreatePage && (
         <Header.RightItem>
+          <Button variant="secondary" size="lg" onClick={() => setIsFolderModalOpen(true)}>
+            Add folder
+          </Button>
           <Button variant="primary" size="lg" onClick={handleCreatePage} loading={isCreatingPage}>
             {isCreatingPage ? "Adding" : "Add page"}
           </Button>
         </Header.RightItem>
       )}
+      <CreateFolderModal
+        isOpen={isFolderModalOpen}
+        pageAccess={pageType === "private" ? EPageAccess.PRIVATE : EPageAccess.PUBLIC}
+        storeType={EPageStoreType.PROJECT}
+        onClose={() => setIsFolderModalOpen(false)}
+      />
     </Header>
   );
 });

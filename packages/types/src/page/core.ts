@@ -22,6 +22,12 @@ export type TPage = {
   label_ids: string[] | undefined;
   name: string | undefined;
   owned_by: string | undefined;
+  parent?: string | null;
+  view_props?: {
+    full_width?: boolean;
+    is_folder?: boolean;
+    internet_public?: boolean;
+  };
   project_ids?: string[] | undefined;
   updated_at: Date | undefined;
   updated_by: string | undefined;

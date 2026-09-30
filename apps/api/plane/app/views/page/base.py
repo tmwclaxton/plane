@@ -72,6 +72,21 @@ def unarchive_archive_page_and_descendants(page_id, archived_at):
         cursor.execute(sql, [page_id, archived_at])
 
 
+
+def _page_parent_cycles(page_id, parent_page):
+    """True when parent_page is this page or one of its descendants."""
+    page_id = str(page_id)
+    current_id = parent_page.id
+    seen = set()
+    while current_id:
+        current = str(current_id)
+        if current == page_id or current in seen:
+            return True
+        seen.add(current)
+        current_id = Page.objects.filter(pk=current_id).values_list("parent_id", flat=True).first()
+    return False
+
+
 class PageViewSet(BaseViewSet):
     serializer_class = PageSerializer
     model = Page
@@ -94,7 +109,6 @@ class PageViewSet(BaseViewSet):
                 projects__project_projectmember__is_active=True,
                 projects__archived_at__isnull=True,
             )
-            .filter(parent__isnull=True)
             .filter(Q(owned_by=self.request.user) | Q(access=0))
             .prefetch_related("projects")
             .select_related("workspace")
@@ -163,14 +177,18 @@ class PageViewSet(BaseViewSet):
             if page.is_locked:
                 return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
 
-            parent = request.data.get("parent", None)
-            if parent:
-                _ = Page.objects.get(
-                    pk=parent,
+            if "parent" in request.data and request.data.get("parent"):
+                parent_page = Page.objects.get(
+                    pk=request.data.get("parent"),
                     workspace__slug=slug,
                     projects__id=project_id,
                     project_pages__deleted_at__isnull=True,
                 )
+                if _page_parent_cycles(page_id, parent_page):
+                    return Response(
+                        {"error": "A page cannot be moved into itself or one of its descendants."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             # Only update access if the page owner is the requesting  user
             if page.access != request.data.get("access", page.access) and page.owned_by_id != request.user.id:

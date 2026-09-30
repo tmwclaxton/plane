@@ -91,6 +91,8 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
   color: string | undefined;
   label_ids: string[] | undefined;
   owned_by: string | undefined;
+  parent: string | null | undefined;
+  view_props: TPage["view_props"];
   access: EPageAccess | undefined;
   is_favorite: boolean;
   is_locked: boolean;
@@ -128,6 +130,8 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
     this.color = page?.color || undefined;
     this.label_ids = page?.label_ids || undefined;
     this.owned_by = page?.owned_by || undefined;
+    this.parent = page?.parent ?? null;
+    this.view_props = page?.view_props || undefined;
     this.access = page?.access || EPageAccess.PUBLIC;
     this.is_favorite = page?.is_favorite || false;
     this.is_locked = page?.is_locked || false;
@@ -153,6 +157,8 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
       color: observable.ref,
       label_ids: observable,
       owned_by: observable.ref,
+      parent: observable.ref,
+      view_props: observable.ref,
       access: observable.ref,
       is_favorite: observable.ref,
       is_locked: observable.ref,
@@ -228,6 +234,8 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
       color: this.color,
       label_ids: this.label_ids,
       owned_by: this.owned_by,
+      parent: this.parent,
+      view_props: this.view_props,
       access: this.access,
       logo_props: this.logo_props,
       is_favorite: this.is_favorite,
