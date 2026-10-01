@@ -18,6 +18,22 @@
         reverse_proxy localhost:3004
     }
 
+	handle /mcp* {
+        reverse_proxy localhost:3004
+    }
+
+	handle /oauth/* {
+        reverse_proxy localhost:3004
+    }
+
+	handle /.well-known/oauth-protected-resource {
+        reverse_proxy localhost:3004
+    }
+
+	handle /.well-known/oauth-authorization-server {
+        reverse_proxy localhost:3004
+    }
+
 	handle_path /god-mode* {
         root * /app/admin
         try_files {path} {path}/ /index.html

@@ -115,6 +115,7 @@ from .asset.v2 import (
     WorkspaceAssetDownloadEndpoint,
     ProjectAssetDownloadEndpoint,
 )
+from plane.mcp.views import PrivateMcpFileEndpoint, PublicMcpFileEndpoint
 from .issue.base import (
     IssueListEndpoint,
     IssueViewSet,

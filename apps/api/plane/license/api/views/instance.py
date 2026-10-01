@@ -63,6 +63,8 @@ class InstanceEndpoint(BaseAPIView):
             POSTHOG_HOST,
             UNSPLASH_ACCESS_KEY,
             LLM_API_KEY,
+            ENABLE_MCP,
+            ENABLE_MCP_FOR_MEMBERS,
         ) = get_configuration_value(
             [
                 {
@@ -122,6 +124,14 @@ class InstanceEndpoint(BaseAPIView):
                     "key": "LLM_API_KEY",
                     "default": os.environ.get("LLM_API_KEY", ""),
                 },
+                {
+                    "key": "ENABLE_MCP",
+                    "default": os.environ.get("ENABLE_MCP", "0"),
+                },
+                {
+                    "key": "ENABLE_MCP_FOR_MEMBERS",
+                    "default": os.environ.get("ENABLE_MCP_FOR_MEMBERS", "0"),
+                },
             ]
         )
 
@@ -151,6 +161,8 @@ class InstanceEndpoint(BaseAPIView):
 
         # Open AI settings
         data["has_llm_configured"] = bool(LLM_API_KEY)
+        data["enable_mcp"] = ENABLE_MCP == "1"
+        data["enable_mcp_for_members"] = ENABLE_MCP_FOR_MEMBERS == "1"
 
         # File size settings
         data["file_size_limit"] = float(os.environ.get("FILE_SIZE_LIMIT", 5242880))

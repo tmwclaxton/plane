@@ -56,7 +56,51 @@ fi
 
 docker compose --env-file plane.env build og
 docker build -t lgs/plane-frontend:v1.4.2-public ./public-frontend
-docker compose --env-file plane.env up -d --no-deps --force-recreate og web proxy
+
+if [ ! -f "$SRC/apps/api/Dockerfile.api" ] || [ ! -f "$SRC/apps/admin/Dockerfile.admin" ] || [ ! -f "$SRC/apps/proxy/Dockerfile.ce" ]; then
+  echo "missing Plane API, admin, or proxy Dockerfile" >&2
+  exit 1
+fi
+
+DOCKER_BUILDKIT=1 docker build \
+  -f "$SRC/apps/api/Dockerfile.api" \
+  -t lgs/plane-backend:v1.4.2-mcp \
+  "$SRC/apps/api"
+
+DOCKER_BUILDKIT=1 docker build \
+  -f "$SRC/apps/admin/Dockerfile.admin" \
+  -t lgs/plane-admin:v1.4.2-mcp \
+  "$SRC"
+
+DOCKER_BUILDKIT=1 docker build \
+  -f "$SRC/apps/proxy/Dockerfile.ce" \
+  -t lgs/plane-proxy:v1.4.2-mcp \
+  "$SRC/apps/proxy"
+
+python3 - <<'PY'
+from pathlib import Path
+path = Path("docker-compose.yaml")
+text = path.read_text()
+replacements = {
+    "image: makeplane/plane-backend:${APP_RELEASE:-v1.4.2}\n": "image: lgs/plane-backend:v1.4.2-mcp\n",
+    "image: lgs/plane-backend:v1.4.2-pages\n": "image: lgs/plane-backend:v1.4.2-mcp\n",
+    "image: makeplane/plane-admin:${APP_RELEASE:-v1.4.2}\n": "image: lgs/plane-admin:v1.4.2-mcp\n",
+    "image: makeplane/plane-proxy:${APP_RELEASE:-v1.4.2}\n": "image: lgs/plane-proxy:v1.4.2-mcp\n",
+}
+for old, new in replacements.items():
+    text = text.replace(old, new)
+# Keep workers on the API image that has MCP migrations.
+text = text.replace(
+    "  worker:\n    image: makeplane/plane-backend:${APP_RELEASE:-v1.4.2}\n",
+    "  worker:\n    image: lgs/plane-backend:v1.4.2-mcp\n",
+)
+path.write_text(text)
+print("mcp_images_ok")
+PY
+
+docker compose --env-file plane.env up -d --no-deps --force-recreate og web api admin proxy
+docker compose --env-file plane.env exec -T api python manage.py migrate --noinput || true
+docker compose --env-file plane.env exec -T api python manage.py configure_instance || true
 
 sleep 3
 curl -fsS --retry 12 --retry-all-errors --retry-delay 2 -o /dev/null http://127.0.0.1:8100/ || true

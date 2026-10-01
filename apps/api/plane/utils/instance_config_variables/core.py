@@ -241,6 +241,21 @@ llm_config_variables = [
     },
 ]
 
+mcp_config_variables = [
+    {
+        "key": "ENABLE_MCP",
+        "value": os.environ.get("ENABLE_MCP", "0"),
+        "category": "MCP",
+        "is_encrypted": False,
+    },
+    {
+        "key": "ENABLE_MCP_FOR_MEMBERS",
+        "value": os.environ.get("ENABLE_MCP_FOR_MEMBERS", "0"),
+        "category": "MCP",
+        "is_encrypted": False,
+    },
+]
+
 unsplash_config_variables = [
     {
         "key": "UNSPLASH_ACCESS_KEY",
@@ -260,4 +275,5 @@ core_config_variables = [
     *smtp_config_variables,
     *llm_config_variables,
     *unsplash_config_variables,
+    *mcp_config_variables,
 ]

@@ -20,6 +20,8 @@ from plane.app.views import (
     DuplicateAssetEndpoint,
     WorkspaceAssetDownloadEndpoint,
     ProjectAssetDownloadEndpoint,
+    PublicMcpFileEndpoint,
+    PrivateMcpFileEndpoint,
 )
 
 
@@ -110,5 +112,20 @@ urlpatterns = [
         "assets/v2/workspaces/<str:slug>/projects/<uuid:project_id>/download/<uuid:asset_id>/",
         ProjectAssetDownloadEndpoint.as_view(),
         name="project-asset-download",
+    ),
+    path(
+        "assets/v2/public/<uuid:asset_id>/",
+        PublicMcpFileEndpoint.as_view(),
+        name="public-mcp-file",
+    ),
+    path(
+        "assets/v2/mcp/<uuid:asset_id>/",
+        PrivateMcpFileEndpoint.as_view(),
+        name="private-mcp-file",
+    ),
+    path(
+        "assets/v2/mcp/<uuid:asset_id>/complete/",
+        PrivateMcpFileEndpoint.as_view(),
+        name="complete-mcp-file",
     ),
 ]

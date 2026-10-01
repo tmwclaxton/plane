@@ -12,6 +12,7 @@ import type {
   IInstanceAdmin,
   IInstanceConfiguration,
   IInstanceInfo,
+  TInstanceMcpSettings,
   TPage,
 } from "@plane/types";
 // api service
@@ -134,6 +135,26 @@ export class InstanceService extends APIService {
    * @returns {Promise<void>} Promise resolving to void
    * @throws {Error} If the API request fails
    */
+  async mcp(): Promise<TInstanceMcpSettings> {
+    return this.get("/api/instances/mcp/")
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateMcp(data: {
+    enable_mcp?: boolean;
+    enable_mcp_for_members?: boolean;
+    rotate_token?: boolean;
+  }): Promise<TInstanceMcpSettings> {
+    return this.patch("/api/instances/mcp/", data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
   async disableEmail(): Promise<void> {
     return this.delete("/api/instances/configurations/disable-email-feature/")
       .then((response) => response?.data)

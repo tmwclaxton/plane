@@ -11,6 +11,7 @@ import type {
   TInstanceImageConfigurationKeys,
   TInstanceAuthenticationKeys,
   TInstanceWorkspaceConfigurationKeys,
+  TInstanceMcpConfigurationKeys,
   TCoreLoginMediums,
 } from "./";
 import type { TExtendedLoginMediums } from "./auth-ee";
@@ -66,6 +67,8 @@ export interface IInstanceConfig {
   admin_base_url: string | undefined;
   is_self_managed: boolean;
   instance_changelog_url?: string;
+  enable_mcp?: boolean;
+  enable_mcp_for_members?: boolean;
 }
 
 export interface IInstanceAdmin {
@@ -85,7 +88,8 @@ export type TInstanceConfigurationKeys =
   | TInstanceEmailConfigurationKeys
   | TInstanceImageConfigurationKeys
   | TInstanceAuthenticationKeys
-  | TInstanceWorkspaceConfigurationKeys;
+  | TInstanceWorkspaceConfigurationKeys
+  | TInstanceMcpConfigurationKeys;
 
 export interface IInstanceConfiguration {
   id: string;

@@ -13,6 +13,7 @@ import { Button } from "@plane/propel/button";
 import { EmptyStateCompact } from "@plane/propel/empty-state";
 import { APITokenService } from "@plane/services";
 // components
+import { McpConnectGuide } from "@/components/api-token/mcp-connect-guide";
 import { CreateApiTokenModal } from "@/components/api-token/modal/create-token-modal";
 import { ApiTokenListItem } from "@/components/api-token/token-list-item";
 import { ProfileSettingsHeading } from "@/components/settings/profile/heading";
@@ -47,6 +48,7 @@ export const APITokensProfileSettings = observer(function APITokensProfileSettin
         }
       />
       <div className="mt-7">
+        <McpConnectGuide />
         {tokens.length > 0 ? (
           <>
             <div>
