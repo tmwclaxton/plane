@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from django.http import FileResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
@@ -125,7 +126,7 @@ class PublicMcpFileEndpoint(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
-    def get(self, request, asset_id):
+    def get(self, request, asset_id, filename=None):
         asset = FileAsset.objects.filter(
             id=asset_id,
             entity_type=FileAsset.EntityTypeContext.MCP_FILE,
@@ -135,7 +136,7 @@ class PublicMcpFileEndpoint(APIView):
         ).first()
         if asset is None:
             return Response({"error": "File not found."}, status=status.HTTP_404_NOT_FOUND)
-        return _redirect_asset(request, asset)
+        return _stream_asset(asset)
 
 
 class PrivateMcpFileEndpoint(APIView):
@@ -184,11 +185,24 @@ class CompleteMcpFileEndpoint(APIView):
         return Response({"id": str(asset.id), "is_uploaded": True}, status=status.HTTP_200_OK)
 
 
+def _stream_asset(asset):
+    content_type = (asset.attributes or {}).get("type") or "application/octet-stream"
+    filename = (asset.attributes or {}).get("name") or "file"
+    try:
+        handle = asset.asset.open("rb")
+    except Exception:
+        return Response({"error": "Could not read the file."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    response = FileResponse(handle, content_type=content_type, as_attachment=False, filename=filename)
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
 def _redirect_asset(request, asset):
     from django.http import HttpResponseRedirect
 
     storage = S3Storage(request=request)
-    signed_url = storage.generate_presigned_url(object_name=asset.asset.name, disposition="attachment")
+    signed_url = storage.generate_presigned_url(object_name=asset.asset.name, disposition="inline")
     if not signed_url:
         return Response({"error": "Could not generate a download URL."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     return HttpResponseRedirect(signed_url)

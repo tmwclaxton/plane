@@ -11,7 +11,10 @@
 		@crm path /crm /crm/
 		redir @crm /lgs/crm
 
-		@unfurl header_regexp User-Agent `(?i)(facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|LinkedInBot|Discordbot|WhatsApp|TelegramBot|SkypeUriPreview|Applebot|iMessage|Googlebot|bingbot|redditbot|Embedly|Iframely|Pinterest|vkShare|Quora|DuckDuckBot|Baiduspider|YandexBot|Snapchat|Viber|embedly)`
+		@unfurl {
+			header_regexp User-Agent `(?i)(facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|LinkedInBot|Discordbot|WhatsApp|TelegramBot|SkypeUriPreview|Applebot|iMessage|Googlebot|bingbot|redditbot|Embedly|Iframely|Pinterest|vkShare|Quora|DuckDuckBot|Baiduspider|YandexBot|Snapchat|Viber|embedly)`
+			not path /api/* /uploads/* /auth/* /mcp /mcp/* /static/* /god-mode/* /spaces/* /live/*
+		}
 		reverse_proxy @unfurl og:8080
 
 		@logged_out_doc {

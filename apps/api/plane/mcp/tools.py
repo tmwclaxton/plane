@@ -8,6 +8,8 @@ import re
 from typing import Any
 from uuid import uuid4
 
+from urllib.parse import quote
+
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import Q
@@ -357,7 +359,8 @@ def _page_payload(page: Page) -> dict[str, Any]:
 def _file_payload(request, asset: FileAsset) -> dict[str, Any]:
     origin = request_origin(request)
     if asset.is_public:
-        download_url = f"{origin}/api/assets/v2/public/{asset.id}/"
+        filename = sanitize_filename((asset.attributes or {}).get("name") or "file") or "file"
+        download_url = f"{origin}/api/assets/v2/public/{asset.id}/{quote(filename)}"
     else:
         download_url = f"{origin}/api/assets/v2/mcp/{asset.id}/"
     return {

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from io import BytesIO
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -217,10 +218,11 @@ def test_public_file_download_allowed_without_auth(api_client, workspace, create
         is_uploaded=True,
         created_by=create_user,
     )
-    with patch("plane.mcp.views.S3Storage.generate_presigned_url", return_value="https://files.example/open.txt"):
-        response = api_client.get(f"/api/assets/v2/public/{asset.id}/")
-    assert response.status_code == status.HTTP_302_FOUND
-    assert response.headers["Location"] == "https://files.example/open.txt"
+    with patch("django.db.models.fields.files.FieldFile.open", return_value=BytesIO(b"hello")):
+        response = api_client.get(f"/api/assets/v2/public/{asset.id}/open.txt")
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"].startswith("text/plain")
+    assert b"hello" in response.content
 
 
 @pytest.mark.contract

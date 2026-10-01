@@ -120,6 +120,11 @@ urlpatterns = [
         name="public-mcp-file",
     ),
     path(
+        "assets/v2/public/<uuid:asset_id>/<str:filename>",
+        PublicMcpFileEndpoint.as_view(),
+        name="public-mcp-file-named",
+    ),
+    path(
         "assets/v2/mcp/<uuid:asset_id>/",
         PrivateMcpFileEndpoint.as_view(),
         name="private-mcp-file",
