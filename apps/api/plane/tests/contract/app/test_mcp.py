@@ -221,3 +221,52 @@ def test_public_file_download_allowed_without_auth(api_client, workspace, create
         response = api_client.get(f"/api/assets/v2/public/{asset.id}/")
     assert response.status_code == status.HTTP_302_FOUND
     assert response.headers["Location"] == "https://files.example/open.txt"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_complete_file_marks_upload_done(api_client, mcp_enabled, instance_admin, mcp_token, workspace):
+    asset = FileAsset.objects.create(
+        attributes={"name": "cover.webp", "type": "image/webp"},
+        asset="mcp/cover.webp",
+        user=mcp_token.user,
+        workspace=workspace,
+        entity_type=FileAsset.EntityTypeContext.MCP_FILE,
+        is_public=True,
+        is_uploaded=False,
+        created_by=mcp_token.user,
+    )
+    with patch("plane.mcp.tools.S3Storage.get_object_metadata", return_value={"ContentLength": 1234}):
+        response = _call(
+            api_client,
+            mcp_token.token,
+            "tools/call",
+            {"name": "complete_file", "arguments": {"workspace": workspace.slug, "file_id": str(asset.id)}},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.data["result"]["structuredContent"]
+    assert payload["is_uploaded"] is True
+    asset.refresh_from_db()
+    assert asset.is_uploaded is True
+    assert asset.size == 1234
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_complete_url_works_without_login(api_client, workspace, create_user):
+    asset = FileAsset.objects.create(
+        attributes={"name": "cover.webp", "type": "image/webp"},
+        asset="mcp/cover.webp",
+        user=create_user,
+        workspace=workspace,
+        entity_type=FileAsset.EntityTypeContext.MCP_FILE,
+        is_public=True,
+        is_uploaded=False,
+        created_by=create_user,
+    )
+    with patch("plane.mcp.tools.S3Storage.get_object_metadata", return_value={"ContentLength": 88}):
+        response = api_client.post(f"/api/assets/v2/mcp/{asset.id}/complete/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["is_uploaded"] is True
+    asset.refresh_from_db()
+    assert asset.is_uploaded is True

@@ -22,6 +22,7 @@ from plane.app.views import (
     ProjectAssetDownloadEndpoint,
     PublicMcpFileEndpoint,
     PrivateMcpFileEndpoint,
+    CompleteMcpFileEndpoint,
 )
 
 
@@ -125,7 +126,7 @@ urlpatterns = [
     ),
     path(
         "assets/v2/mcp/<uuid:asset_id>/complete/",
-        PrivateMcpFileEndpoint.as_view(),
+        CompleteMcpFileEndpoint.as_view(),
         name="complete-mcp-file",
     ),
 ]

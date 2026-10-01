@@ -22,6 +22,7 @@ MCP_TOOLS = [
     "create_page",
     "update_page",
     "create_file",
+    "complete_file",
     "list_files",
     "get_file",
     "update_file",

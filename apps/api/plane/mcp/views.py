@@ -16,7 +16,7 @@ from plane.settings.storage import S3Storage
 
 from .auth import authenticate_mcp_token
 from .settings import is_mcp_enabled, user_can_use_mcp
-from .tools import ToolError, dispatch, tool_schemas
+from .tools import ToolError, dispatch, mark_mcp_file_uploaded, tool_schemas
 
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -167,22 +167,20 @@ class PrivateMcpFileEndpoint(APIView):
             return Response({"error": "The requested asset could not be found."}, status=status.HTTP_404_NOT_FOUND)
         return _redirect_asset(request, asset)
 
-    def post(self, request, asset_id):
-        try:
-            user = self._user(request)
-        except AuthenticationFailed as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
 
+class CompleteMcpFileEndpoint(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, asset_id):
         asset = FileAsset.objects.filter(
             id=asset_id,
             entity_type=FileAsset.EntityTypeContext.MCP_FILE,
             is_deleted=False,
-            created_by=user,
         ).first()
         if asset is None:
             return Response({"error": "File not found."}, status=status.HTTP_404_NOT_FOUND)
-        asset.is_uploaded = True
-        asset.save(update_fields=["is_uploaded"])
+        mark_mcp_file_uploaded(request, asset)
         return Response({"id": str(asset.id), "is_uploaded": True}, status=status.HTTP_200_OK)
 
 

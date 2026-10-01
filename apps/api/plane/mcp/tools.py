@@ -204,7 +204,7 @@ def tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "create_file",
-            "description": "Store a file. Pass content_base64 to upload now, or use the returned upload URL.",
+            "description": "Store a file. Pass content_base64 to upload now, or PUT to the returned upload URL then call complete_file.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -216,6 +216,15 @@ def tool_schemas() -> list[dict[str, Any]]:
                     "content_base64": string,
                 },
                 "required": ["workspace", "filename"],
+            },
+        },
+        {
+            "name": "complete_file",
+            "description": "Finish an upload after the file is in storage so the public or private link will serve.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"workspace": string, "file_id": string},
+                "required": ["workspace", "file_id"],
             },
         },
         {
@@ -626,7 +635,31 @@ def create_file(request, user, arguments):
     upload = storage.generate_presigned_post(asset_key, content_type, settings.FILE_SIZE_LIMIT)
     payload["upload"] = upload
     payload["upload_complete"] = f"{request_origin(request)}/api/assets/v2/mcp/{asset.id}/complete/"
+    payload["next_step"] = "After the storage upload succeeds, call complete_file with this file_id."
     return _json(payload)
+
+
+def mark_mcp_file_uploaded(request, asset: FileAsset) -> FileAsset:
+    metadata = S3Storage(request=request).get_object_metadata(asset.asset.name)
+    if metadata and metadata.get("ContentLength"):
+        asset.size = metadata["ContentLength"]
+    asset.is_uploaded = True
+    asset.save(update_fields=["is_uploaded", "size"])
+    return asset
+
+
+def complete_file(request, user, arguments):
+    workspace = _workspace(user, arguments.get("workspace"))
+    asset = FileAsset.objects.filter(
+        id=arguments.get("file_id"),
+        workspace=workspace,
+        entity_type=FileAsset.EntityTypeContext.MCP_FILE,
+        is_deleted=False,
+    ).first()
+    if asset is None:
+        raise ToolError("File not found.", 404)
+    mark_mcp_file_uploaded(request, asset)
+    return _json(_file_payload(request, asset))
 
 
 def list_files(request, user, arguments):
@@ -705,6 +738,7 @@ TOOLS = {
     "create_page": create_page,
     "update_page": update_page,
     "create_file": create_file,
+    "complete_file": complete_file,
     "list_files": list_files,
     "get_file": get_file,
     "update_file": update_file,
