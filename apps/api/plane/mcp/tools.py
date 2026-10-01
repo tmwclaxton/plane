@@ -640,11 +640,8 @@ def create_file(request, user, arguments):
 
 
 def mark_mcp_file_uploaded(request, asset: FileAsset) -> FileAsset:
-    metadata = S3Storage(request=request).get_object_metadata(asset.asset.name)
-    if metadata and metadata.get("ContentLength"):
-        asset.size = metadata["ContentLength"]
     asset.is_uploaded = True
-    asset.save(update_fields=["is_uploaded", "size"])
+    asset.save(update_fields=["is_uploaded"])
     return asset
 
 
