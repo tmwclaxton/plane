@@ -218,7 +218,9 @@ def test_public_file_download_allowed_without_auth(api_client, workspace, create
         is_uploaded=True,
         created_by=create_user,
     )
-    with patch("django.db.models.fields.files.FieldFile.open", return_value=BytesIO(b"hello")):
+    with patch("plane.mcp.views.S3Storage") as storage_cls:
+        storage_cls.return_value.aws_storage_bucket_name = "uploads"
+        storage_cls.return_value.s3_client.get_object.return_value = {"Body": BytesIO(b"hello")}
         response = api_client.get(f"/api/assets/v2/public/{asset.id}/open.txt")
     assert response.status_code == status.HTTP_200_OK
     assert response["Content-Type"].startswith("text/plain")

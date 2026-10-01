@@ -136,7 +136,7 @@ class PublicMcpFileEndpoint(APIView):
         ).first()
         if asset is None:
             return Response({"error": "File not found."}, status=status.HTTP_404_NOT_FOUND)
-        return _stream_asset(asset)
+        return _stream_asset(request, asset)
 
 
 class PrivateMcpFileEndpoint(APIView):
@@ -185,14 +185,18 @@ class CompleteMcpFileEndpoint(APIView):
         return Response({"id": str(asset.id), "is_uploaded": True}, status=status.HTTP_200_OK)
 
 
-def _stream_asset(asset):
+def _stream_asset(request, asset):
     content_type = (asset.attributes or {}).get("type") or "application/octet-stream"
     filename = (asset.attributes or {}).get("name") or "file"
+    storage = S3Storage()
     try:
-        handle = asset.asset.open("rb")
+        obj = storage.s3_client.get_object(
+            Bucket=storage.aws_storage_bucket_name,
+            Key=str(asset.asset.name),
+        )
     except Exception:
         return Response({"error": "Could not read the file."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-    response = FileResponse(handle, content_type=content_type, as_attachment=False, filename=filename)
+    response = FileResponse(obj["Body"], content_type=content_type, as_attachment=False, filename=filename)
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     response["Cache-Control"] = "public, max-age=86400"
     return response
