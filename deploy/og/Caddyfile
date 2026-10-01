@@ -32,6 +32,14 @@
 
 		reverse_proxy /auth/* api:8000
 
+		reverse_proxy /mcp api:8000
+		reverse_proxy /mcp/* api:8000
+		reverse_proxy /oauth/* api:8000
+		reverse_proxy /.well-known/oauth-protected-resource api:8000
+		reverse_proxy /.well-known/oauth-protected-resource/* api:8000
+		reverse_proxy /.well-known/oauth-authorization-server api:8000
+		reverse_proxy /.well-known/oauth-authorization-server/* api:8000
+
 		reverse_proxy /static/* api:8000
 
 		reverse_proxy /{$BUCKET_NAME}/* plane-minio:9000
