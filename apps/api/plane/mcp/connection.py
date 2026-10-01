@@ -7,6 +7,8 @@ import json
 
 MCP_TOOLS = [
     "whoami",
+    "list_workspaces",
+    "get_workspace",
     "list_projects",
     "get_project",
     "create_project",

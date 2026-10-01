@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db.models import Q
 from django.utils import timezone
 
 from plane.app.serializers import ProjectSerializer
@@ -44,6 +45,20 @@ def tool_schemas() -> list[dict[str, Any]]:
     boolean = {"type": "boolean"}
     return [
         {"name": "whoami", "description": "Current Plane user and MCP flags.", "inputSchema": {"type": "object", "properties": {}}},
+        {
+            "name": "list_workspaces",
+            "description": "List workspaces the user can access. Optional query matches name or slug.",
+            "inputSchema": {"type": "object", "properties": {"query": string}},
+        },
+        {
+            "name": "get_workspace",
+            "description": "Get one workspace by slug or name.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"workspace": string},
+                "required": ["workspace"],
+            },
+        },
         {
             "name": "list_projects",
             "description": "List projects the user can access in a workspace.",
@@ -247,8 +262,25 @@ def _json(data: Any) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": json.dumps(data, default=str)}], "structuredContent": data}
 
 
+def _workspace_payload(workspace: Workspace) -> dict[str, Any]:
+    return {
+        "id": str(workspace.id),
+        "name": workspace.name,
+        "slug": workspace.slug,
+    }
+
+
+def _accessible_workspaces(user):
+    return Workspace.objects.filter(workspace_member__member=user, workspace_member__is_active=True).distinct()
+
+
 def _workspace(user, slug: str) -> Workspace:
-    workspace = Workspace.objects.filter(slug=slug).first()
+    key = (slug or "").strip()
+    if not key:
+        raise ToolError("workspace is required.")
+    workspace = Workspace.objects.filter(slug=key).first()
+    if workspace is None:
+        workspace = Workspace.objects.filter(name__iexact=key).first()
     if workspace is None:
         raise ToolError("Workspace not found.", 404)
     if not WorkspaceMember.objects.filter(workspace=workspace, member=user, is_active=True).exists():
@@ -353,6 +385,19 @@ def whoami(request, user, _arguments):
             "tools": MCP_TOOLS,
         }
     )
+
+
+def list_workspaces(request, user, arguments):
+    query = (arguments.get("query") or "").strip()
+    workspaces = _accessible_workspaces(user)
+    if query:
+        workspaces = workspaces.filter(Q(name__icontains=query) | Q(slug__icontains=query))
+    return _json([_workspace_payload(workspace) for workspace in workspaces.order_by("name")])
+
+
+def get_workspace(request, user, arguments):
+    workspace = _workspace(user, arguments.get("workspace"))
+    return _json(_workspace_payload(workspace))
 
 
 def list_projects(request, user, arguments):
@@ -645,6 +690,8 @@ def delete_file(request, user, arguments):
 
 TOOLS = {
     "whoami": whoami,
+    "list_workspaces": list_workspaces,
+    "get_workspace": get_workspace,
     "list_projects": list_projects,
     "get_project": get_project,
     "create_project": create_project,

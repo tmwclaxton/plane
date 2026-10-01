@@ -86,6 +86,33 @@ def test_bad_bearer_is_rejected(api_client, mcp_enabled):
 
 @pytest.mark.contract
 @pytest.mark.django_db
+def test_list_workspaces_matches_name_or_slug(api_client, mcp_enabled, instance_admin, mcp_token, workspace):
+    listed = _call(api_client, mcp_token.token, "tools/call", {"name": "list_workspaces", "arguments": {}})
+    assert listed.status_code == status.HTTP_200_OK
+    rows = listed.data["result"]["structuredContent"]
+    assert {"id": str(workspace.id), "name": workspace.name, "slug": workspace.slug} in rows
+
+    queried = _call(
+        api_client,
+        mcp_token.token,
+        "tools/call",
+        {"name": "list_workspaces", "arguments": {"query": "Test"}},
+    )
+    assert queried.status_code == status.HTTP_200_OK
+    assert queried.data["result"]["structuredContent"][0]["slug"] == workspace.slug
+
+    by_name = _call(
+        api_client,
+        mcp_token.token,
+        "tools/call",
+        {"name": "get_workspace", "arguments": {"workspace": workspace.name}},
+    )
+    assert by_name.status_code == status.HTTP_200_OK
+    assert by_name.data["result"]["structuredContent"]["slug"] == workspace.slug
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
 def test_bearer_whoami(api_client, mcp_enabled, instance_admin, mcp_token):
     response = _call(api_client, mcp_token.token, "tools/call", {"name": "whoami", "arguments": {}})
     assert response.status_code == status.HTTP_200_OK
