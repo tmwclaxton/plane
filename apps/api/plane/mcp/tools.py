@@ -166,11 +166,25 @@ def tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "get_page",
-            "description": "Get one page, including the written document body as HTML and plain text.",
+            "description": "Read a page and its written document body. Returns name, description_text, and description_html.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"workspace": string, "project_id": string, "page_id": string},
                 "required": ["workspace", "project_id", "page_id"],
+            },
+            "outputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": string,
+                    "name": string,
+                    "access": {"type": "integer"},
+                    "is_public": boolean,
+                    "parent": string,
+                    "is_folder": boolean,
+                    "description_html": string,
+                    "description_text": string,
+                },
+                "required": ["id", "name", "description_html", "description_text"],
             },
         },
         {
@@ -553,7 +567,12 @@ def get_page(request, user, arguments):
     page = Page.objects.filter(id=arguments.get("page_id"), workspace=workspace, projects=project).first()
     if page is None:
         raise ToolError("Page not found.", 404)
-    return _json(_page_payload(page, include_body=True))
+    data = _page_payload(page, include_body=True)
+    body = (data.get("description_text") or "").strip() or "(This page has no written text.)"
+    return {
+        "content": [{"type": "text", "text": f"{data['name']}\n\n{body}"}],
+        "structuredContent": data,
+    }
 
 
 def create_page(request, user, arguments):

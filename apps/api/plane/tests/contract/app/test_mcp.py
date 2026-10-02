@@ -308,3 +308,4 @@ def test_get_page_returns_document_body(api_client, mcp_enabled, instance_admin,
     payload = response.data["result"]["structuredContent"]
     assert "4:30 PM" in payload["description_html"]
     assert "4:30 PM" in payload["description_text"]
+    assert "4:30 PM" in response.data["result"]["content"][0]["text"]
