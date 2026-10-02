@@ -10,7 +10,7 @@ import pytest
 from django.utils import timezone
 from rest_framework import status
 
-from plane.db.models import APIToken, FileAsset, Project, ProjectMember, User, Workspace, WorkspaceMember
+from plane.db.models import APIToken, FileAsset, Page, Project, ProjectMember, ProjectPage, User, Workspace, WorkspaceMember
 from plane.license.models import Instance, InstanceAdmin, InstanceConfiguration
 from plane.mcp.settings import ensure_mcp_configuration
 
@@ -271,3 +271,40 @@ def test_complete_url_works_without_login(api_client, workspace, create_user):
     assert response.data["is_uploaded"] is True
     asset.refresh_from_db()
     assert asset.is_uploaded is True
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_get_page_returns_document_body(api_client, mcp_enabled, instance_admin, mcp_token, workspace):
+    project = Project.objects.create(
+        name="Docs",
+        identifier="DOC",
+        workspace=workspace,
+        created_by=mcp_token.user,
+    )
+    ProjectMember.objects.create(workspace=workspace, project=project, member=mcp_token.user, role=20)
+    page = Page.objects.create(
+        workspace=workspace,
+        name="LGS London #2 Itinerary",
+        owned_by=mcp_token.user,
+        description_html="<p>Meet at St James’s Park at 4:30 PM</p>",
+        created_by=mcp_token.user,
+    )
+    ProjectPage.objects.create(workspace=workspace, project=project, page=page)
+    response = _call(
+        api_client,
+        mcp_token.token,
+        "tools/call",
+        {
+            "name": "get_page",
+            "arguments": {
+                "workspace": workspace.slug,
+                "project_id": str(project.id),
+                "page_id": str(page.id),
+            },
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.data["result"]["structuredContent"]
+    assert "4:30 PM" in payload["description_html"]
+    assert "4:30 PM" in payload["description_text"]

@@ -16,6 +16,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from plane.app.serializers import ProjectSerializer
+from plane.utils.html_processor import strip_tags
 from plane.db.models import (
     FileAsset,
     Issue,
@@ -165,7 +166,7 @@ def tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "get_page",
-            "description": "Get one page.",
+            "description": "Get one page, including the written document body as HTML and plain text.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"workspace": string, "project_id": string, "page_id": string},
@@ -190,7 +191,7 @@ def tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "update_page",
-            "description": "Update a page, including public or private access and parent folder.",
+            "description": "Update a page, including the written document body, public or private access, and parent folder.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -200,6 +201,7 @@ def tool_schemas() -> list[dict[str, Any]]:
                     "name": string,
                     "access": {"type": "integer", "enum": [0, 1]},
                     "parent": string,
+                    "description_html": string,
                 },
                 "required": ["workspace", "project_id", "page_id"],
             },
@@ -343,9 +345,9 @@ def _issue_payload(issue: Issue) -> dict[str, Any]:
     }
 
 
-def _page_payload(page: Page) -> dict[str, Any]:
+def _page_payload(page: Page, include_body: bool = False) -> dict[str, Any]:
     view_props = page.view_props or {}
-    return {
+    payload = {
         "id": str(page.id),
         "name": page.name,
         "access": page.access,
@@ -354,6 +356,11 @@ def _page_payload(page: Page) -> dict[str, Any]:
         "is_folder": view_props.get("is_folder") is True,
         "view_props": view_props,
     }
+    if include_body:
+        html = page.description_html or ""
+        payload["description_html"] = html
+        payload["description_text"] = page.description_stripped or strip_tags(html)
+    return payload
 
 
 def _file_payload(request, asset: FileAsset) -> dict[str, Any]:
@@ -546,7 +553,7 @@ def get_page(request, user, arguments):
     page = Page.objects.filter(id=arguments.get("page_id"), workspace=workspace, projects=project).first()
     if page is None:
         raise ToolError("Page not found.", 404)
-    return _json(_page_payload(page))
+    return _json(_page_payload(page, include_body=True))
 
 
 def create_page(request, user, arguments):
@@ -595,8 +602,10 @@ def update_page(request, user, arguments):
             page.parent = parent
         else:
             page.parent = None
+    if "description_html" in arguments:
+        page.description_html = arguments.get("description_html") or "<p></p>"
     page.save()
-    return _json(_page_payload(page))
+    return _json(_page_payload(page, include_body=True))
 
 
 def create_file(request, user, arguments):
