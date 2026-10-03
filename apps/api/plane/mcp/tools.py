@@ -3,12 +3,15 @@
 # See the LICENSE file for details.
 
 import base64
+import ipaddress
 import json
 import re
+import socket
+import urllib.request
 from typing import Any
 from uuid import uuid4
 
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlparse
 
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -222,7 +225,7 @@ def tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "create_file",
-            "description": "Store a file. Pass content_base64 to upload now, or PUT to the returned upload URL then call complete_file.",
+            "description": "Store a file. Prefer source_url so Plane fetches the image. Or pass content_base64, or use the returned upload URL then complete_file.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -232,6 +235,7 @@ def tool_schemas() -> list[dict[str, Any]]:
                     "content_type": string,
                     "is_public": boolean,
                     "content_base64": string,
+                    "source_url": string,
                 },
                 "required": ["workspace", "filename"],
             },
@@ -627,12 +631,89 @@ def update_page(request, user, arguments):
     return _json(_page_payload(page, include_body=True))
 
 
+def _blocked_host(host: str) -> bool:
+    host = (host or "").lower().rstrip(".")
+    if not host or host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
+        return True
+    if host.endswith(".local") or host.endswith(".internal") or host.endswith(".localhost"):
+        return True
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
+    except socket.gaierror as exc:
+        raise ToolError("Could not resolve source_url host.") from exc
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            return True
+    return False
+
+
+def _fetch_source_url(url: str) -> tuple[bytes, str]:
+    parsed = urlparse((url or "").strip())
+    if parsed.scheme not in {"http", "https"}:
+        raise ToolError("source_url must be http or https.")
+    if _blocked_host(parsed.hostname):
+        raise ToolError("source_url host is not allowed.")
+    request = urllib.request.Request(parsed.geturl(), headers={"User-Agent": "Plane-MCP/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            final = urlparse(response.geturl())
+            if final.scheme not in {"http", "https"} or _blocked_host(final.hostname):
+                raise ToolError("source_url redirected to a blocked address.")
+            headers = response.headers
+            fetched_type = ""
+            if headers is not None:
+                if hasattr(headers, "get_content_type"):
+                    fetched_type = headers.get_content_type() or ""
+                else:
+                    fetched_type = headers.get("Content-Type") or ""
+                fetched_type = fetched_type.split(";")[0].strip()
+            raw = response.read(settings.FILE_SIZE_LIMIT + 1)
+    except ToolError:
+        raise
+    except Exception as exc:
+        raise ToolError(f"Could not fetch source_url: {exc}") from exc
+    if not raw:
+        raise ToolError("source_url returned an empty file.")
+    if len(raw) > settings.FILE_SIZE_LIMIT:
+        raise ToolError("File too large.")
+    return raw, fetched_type
+
+
+def _write_asset_bytes(asset: FileAsset, filename: str, raw: bytes, content_type: str) -> None:
+    stored = False
+    try:
+        storage = S3Storage()
+        storage.s3_client.put_object(
+            Bucket=storage.aws_storage_bucket_name,
+            Key=str(asset.asset.name),
+            Body=raw,
+            ContentType=content_type,
+        )
+        stored = True
+    except Exception:
+        stored = False
+    if not stored:
+        asset.asset.save(filename, ContentFile(raw), save=False)
+    attributes = dict(asset.attributes or {})
+    attributes["name"] = filename
+    attributes["type"] = content_type
+    asset.attributes = attributes
+    asset.size = len(raw)
+    asset.is_uploaded = True
+    asset.save(update_fields=["asset", "size", "is_uploaded", "attributes"])
+
+
 def create_file(request, user, arguments):
     workspace = _workspace(user, arguments.get("workspace"))
     project = None
     if arguments.get("project_id"):
         project = _project(user, workspace, arguments["project_id"])
     filename = sanitize_filename(arguments.get("filename") or "") or "unnamed"
+    source_url = (arguments.get("source_url") or "").strip()
+    if filename == "unnamed" and source_url:
+        path_name = unquote(urlparse(source_url).path.rsplit("/", 1)[-1])
+        filename = sanitize_filename(path_name) or "unnamed"
     content_type = arguments.get("content_type") or "application/octet-stream"
     is_public = bool(arguments.get("is_public"))
     asset_key = f"{workspace.id}/{uuid4().hex}-{filename}"
@@ -650,23 +731,29 @@ def create_file(request, user, arguments):
     )
     payload = _file_payload(request, asset)
     content_b64 = arguments.get("content_base64")
+    if source_url:
+        try:
+            raw, fetched_type = _fetch_source_url(source_url)
+        except ToolError:
+            asset.delete()
+            raise
+        if content_type == "application/octet-stream" and fetched_type:
+            content_type = fetched_type
+        _write_asset_bytes(asset, filename, raw, content_type)
+        return _json(_file_payload(request, asset))
     if content_b64:
         raw = base64.b64decode(content_b64)
         if len(raw) > settings.FILE_SIZE_LIMIT:
             asset.delete()
             raise ToolError("File too large.")
-        asset.asset.save(filename, ContentFile(raw), save=False)
-        asset.size = len(raw)
-        asset.is_uploaded = True
-        asset.save(update_fields=["asset", "size", "is_uploaded"])
-        payload = _file_payload(request, asset)
-        return _json(payload)
+        _write_asset_bytes(asset, filename, raw, content_type)
+        return _json(_file_payload(request, asset))
 
     storage = S3Storage(request=request)
     upload = storage.generate_presigned_post(asset_key, content_type, settings.FILE_SIZE_LIMIT)
     payload["upload"] = upload
     payload["upload_complete"] = f"{request_origin(request)}/api/assets/v2/mcp/{asset.id}/complete/"
-    payload["next_step"] = "After the storage upload succeeds, call complete_file with this file_id."
+    payload["next_step"] = "After the storage upload succeeds, call complete_file with this file_id. Prefer source_url on create_file instead."
     return _json(payload)
 
 

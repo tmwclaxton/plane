@@ -309,3 +309,75 @@ def test_get_page_returns_document_body(api_client, mcp_enabled, instance_admin,
     assert "4:30 PM" in payload["description_html"]
     assert "4:30 PM" in payload["description_text"]
     assert "4:30 PM" in response.data["result"]["content"][0]["text"]
+
+
+class _FetchedFile:
+    def __init__(self, data: bytes, content_type: str, url: str):
+        self._data = data
+        self.headers = {"Content-Type": content_type}
+        self._url = url
+
+    def geturl(self):
+        return self._url
+
+    def read(self, _n):
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_create_file_fetches_source_url(api_client, mcp_enabled, instance_admin, mcp_token, workspace):
+    fetched = _FetchedFile(b"\xff\xd8fakejpeg", "image/jpeg", "https://cdn.example.com/5a-01.jpg")
+    with patch("plane.mcp.tools._blocked_host", return_value=False):
+      with patch("plane.mcp.tools.urllib.request.urlopen", return_value=fetched):
+        with patch("plane.mcp.tools.S3Storage") as storage_cls:
+            storage_cls.return_value.s3_client.put_object.side_effect = RuntimeError("no minio in tests")
+            response = _call(
+                api_client,
+                mcp_token.token,
+                "tools/call",
+                {
+                    "name": "create_file",
+                    "arguments": {
+                        "workspace": workspace.slug,
+                        "filename": "5a-01.jpg",
+                        "is_public": True,
+                        "source_url": "https://cdn.example.com/5a-01.jpg",
+                    },
+                },
+            )
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.data["result"]["structuredContent"]
+    assert payload["is_uploaded"] is True
+    assert payload["filename"] == "5a-01.jpg"
+    assert payload["content_type"] == "image/jpeg"
+    asset = FileAsset.objects.get(id=payload["id"])
+    assert asset.is_uploaded is True
+    assert asset.size == 10
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_create_file_rejects_private_source_url(api_client, mcp_enabled, instance_admin, mcp_token, workspace):
+    response = _call(
+        api_client,
+        mcp_token.token,
+        "tools/call",
+        {
+            "name": "create_file",
+            "arguments": {
+                "workspace": workspace.slug,
+                "filename": "nope.jpg",
+                "source_url": "http://127.0.0.1/secret.jpg",
+            },
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["result"]["isError"] is True
+    assert FileAsset.objects.filter(attributes__name="nope.jpg").exists() is False
